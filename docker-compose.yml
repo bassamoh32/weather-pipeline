@@ -1,0 +1,100 @@
+version: "3.8"
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - airflow_net
+
+  # pgAdmin for managing PostgreSQL
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - airflow_net
+
+  # Airflow initialization (creates DB and admin user once)
+  airflow-init:
+    image: apache/airflow:2.9.1-python3.11
+    depends_on:
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+      AIRFLOW__WEBSERVER__DEFAULT_USER_USERNAME: ${AIRFLOW_USER}
+      AIRFLOW__WEBSERVER__DEFAULT_USER_PASSWORD: ${AIRFLOW_PASSWORD}
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
+    volumes:
+      - ./dags:/opt/airflow/dags
+    command: >
+      bash -c "
+        airflow db upgrade &&
+        airflow users create --username ${AIRFLOW_USER} --password ${AIRFLOW_PASSWORD} --firstname Airflow --lastname Admin --role Admin --email admin@example.com
+      "
+    networks:
+      - airflow_net
+
+  # Airflow Webserver
+  airflow-webserver:
+    image: apache/airflow:2.9.1-python3.11
+    restart: always
+    depends_on:
+      - airflow-init
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
+    volumes:
+      - ./dags:/opt/airflow/dags
+    ports:
+      - "8080:8080"
+    command: airflow webserver
+    networks:
+      - airflow_net
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    image: apache/airflow:2.9.1-python3.11
+    restart: always
+    depends_on:
+      - airflow-webserver
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
+    volumes:
+      - ./dags:/opt/airflow/dags
+    command: airflow scheduler
+    networks:
+      - airflow_net
+
+  # Metabase for dashboarding
+  metabase:
+    image: metabase/metabase
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    networks:
+      - airflow_net
+
+volumes:
+  postgres_data:
+
+networks:
+  airflow_net:
