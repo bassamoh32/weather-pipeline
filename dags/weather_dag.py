@@ -18,11 +18,6 @@ POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_USER = os.getenv("POSTGRES_USER")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 
-# Check for missing ENV
-if not API_KEY:
-    raise ValueError("Missing OPENWEATHER_API_KEY environment variable.")
-if not POSTGRES_DB or not POSTGRES_USER or not POSTGRES_PASSWORD:
-    raise ValueError("PostgreSQL environment variables are missing.")
 
 MOROCCO_CITIES = [
     {"name": "Casablanca", "lat": 33.5731, "lon": -7.5898},
