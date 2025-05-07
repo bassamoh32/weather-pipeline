@@ -30,6 +30,7 @@ services:
 
   # Airflow initialization (creates DB and admin user once)
   airflow-init:
+    build: .
     image: apache/airflow:2.9.1-python3.11
     depends_on:
       - postgres
@@ -54,6 +55,7 @@ services:
 
   # Airflow Webserver
   airflow-webserver:
+    build: .
     image: apache/airflow:2.9.1-python3.11
     restart: always
     depends_on:
@@ -77,6 +79,7 @@ services:
 
   # Airflow Scheduler
   airflow-scheduler:
+    build: .
     image: apache/airflow:2.9.1-python3.11
     restart: always
     depends_on:
@@ -105,9 +108,21 @@ services:
       - postgres
     networks:
       - airflow_net
+  
+  # Casandra Database
+  cassandra:
+    image: cassandra:4.1
+    container_name: cassandra
+    ports:
+      - "9042:9042"
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    networks:
+      - airflow_net
 
 volumes:
   postgres_data:
+  cassandra_data:
 
 networks:
   airflow_net:

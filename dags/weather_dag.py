@@ -7,6 +7,7 @@ import psycopg2
 import os
 import logging
 import traceback
+from cassandra.cluster import Cluster
 
 
 # Setup logging
@@ -94,6 +95,34 @@ def store_weather_data():
         logging.error("Database connection or processing failed.")
         logging.error(traceback.format_exc())
         raise  # Important: Raise so Airflow knows the task failed
+
+
+     # Cassandra part
+    try:
+        cluster = Cluster(["cassandra"])  # Cassandra container name
+        session = cluster.connect()
+        session.set_keyspace("weather")
+
+        cassandra_query = """
+        INSERT INTO weather_by_city (city, date, temperature, humidity, description)
+        VALUES (%s, %s, %s, %s, %s)
+        """
+
+        for city in MOROCCO_CITIES:
+
+            weather = fetch_weather(city["lat"], city["lon"], city["name"])
+            session.execute(cassandra_query, (
+                weather["city"],
+                weather["date"],
+                weather["temperature"],
+                weather["humidity"],
+                weather["description"]
+            ))
+
+        print("Data inserted into Cassandra successfully.")
+
+    except Exception as e:
+        print("Failed to store data in Cassandra:", e)
 
 
 default_args = {
